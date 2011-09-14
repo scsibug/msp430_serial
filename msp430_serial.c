@@ -31,8 +31,30 @@ int main() {
 }
 
 static void MSP_setup(HANDLE h) {
-  //int r;
-  //  r = libusb_control_transfer(h, E);
+  int r;
+  // claim interface, but check if kernel has this device first:
+  r = libusb_kernel_driver_active(h, 1);
+  if (r == 0) {
+    printf("Interface is available\n");
+  } else if (r == 1) {
+    printf("Kernel driver is active!\n");
+  } else {
+    MSP_libusb_error(r);
+  }
+  r = libusb_claim_interface(h, 1);
+  if (r == 0) {
+    printf("Claimed interface\n");
+  } else {
+    MSP_libusb_error(r);
+  }
+  unsigned char data[7] = {0x80, 0x25, 0x0, 0x0, 0x0, 0x0, 0x08};
+  printf("sending control transfer\n");
+  r = libusb_control_transfer(h, 0, 0x21, 0, 0, data, sizeof(data), 0);
+  if (r <= 0) {
+    MSP_libusb_error(r);
+  } else {
+    printf("Return from control transfer: %d\n", r);
+  }
 }
 
 static int MSP_get_endpoints(HANDLE h, uint8_t *int_in, uint8_t *bulk_in, uint8_t *bulk_out) {
