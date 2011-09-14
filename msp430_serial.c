@@ -55,18 +55,17 @@ static int MSP_get_endpoints(HANDLE h, uint8_t *int_in, uint8_t *bulk_in, uint8_
         // This is the interface we are interested in
         eps = intf_desc->endpoint;
         for (m = 0; m < intf_desc->bNumEndpoints; m++) {
-          printf("Found endpoint (0x%x)\n",eps[m].bEndpointAddress);
-          if (eps[m].bmAttributes & LIBUSB_TRANSFER_TYPE_INTERRUPT) {
-            if (eps[m].bEndpointAddress & LIBUSB_ENDPOINT_IN) {
+          if ((eps[m].bmAttributes & LIBUSB_TRANSFER_TYPE_MASK) == LIBUSB_TRANSFER_TYPE_INTERRUPT) {
+            if ((eps[m].bEndpointAddress & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_IN) {
               printf("Found INTERRUPT IN endpoint (0x%x)\n",eps[m].bEndpointAddress);
               *int_in = eps[m].bEndpointAddress;
             }
           } else if (eps[m].bmAttributes & LIBUSB_TRANSFER_TYPE_BULK) {
-            if (eps[m].bEndpointAddress & LIBUSB_ENDPOINT_IN) {
-              printf("Found BULK IN endpoint\n");
+            if ((eps[m].bEndpointAddress & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_IN) {
+              printf("Found BULK IN endpoint (0x%x)\n",eps[m].bEndpointAddress);
               *bulk_in = eps[m].bEndpointAddress;
-            } else if (eps[m].bEndpointAddress & LIBUSB_ENDPOINT_OUT) {
-              printf("Found BULK OUT endpoint\n");
+            } else if ((eps[m].bEndpointAddress & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_OUT) {
+              printf("Found BULK OUT endpoint (0x%x)\n",eps[m].bEndpointAddress);
               *bulk_out = eps[m].bEndpointAddress;
             }
           }
