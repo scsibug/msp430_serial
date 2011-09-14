@@ -26,7 +26,7 @@ int main() {
   MSP_get_endpoints(h, &ep_int_in, &ep_bulk_in, &ep_bulk_out);
   // Send magic setup control transfers...
   MSP_setup(h);
-  do_bulk_transfer(h);
+  //do_bulk_transfer(h);
   // fake an event loop
   while(1) {
     printf(".\n");
@@ -39,6 +39,7 @@ int main() {
 
 static void MSP_setup(HANDLE h) {
   int r;
+  uint8_t config = 0;
   // claim interface, but check if kernel has this device first:
   r = libusb_kernel_driver_active(h, 1);
   if (r == 0) {
@@ -54,12 +55,21 @@ static void MSP_setup(HANDLE h) {
   } else {
     MSP_libusb_error(r);
   }
-  unsigned char data[7] = {0x80, 0x25, 0x0, 0x0, 0x0, 0x0, 0x08};
-  unsigned char bdata[1000];
+  //unsigned char data[7] = {0x80, 0x25, 0x0, 0x0, 0x0, 0x0, 0x08};
+  // GET STATUS of the interface.
+  unsigned char *bdata;
   int transferred = 0;
   printf("sending control transfer\n");
-
-  //  r = libusb_control_transfer(h, 0, 0x22, 0, 0, data, sizeof(data), 0);
+  bdata = malloc(sizeof(*bdata) * 2);
+  //  uint8_t reqtype =  ( LIBUSB_LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_ENDPOINT);
+  uint8_t reqtype = LIBUSB_ENDPOINT_IN;
+  printf("reqtype: 0x%x, %d\n",reqtype,reqtype);
+  r = libusb_control_transfer(h, LIBUSB_ENDPOINT_IN|LIBUSB_REQUEST_TYPE_STANDARD,
+       LIBUSB_REQUEST_GET_STATUS, 0, 0, &bdata, 2, 1000);
+  printf("self-powered: %d\n",bdata[0]&1);
+  printf("remote wakeup: %d\n",bdata[0]&2);
+//  r = libusb_control_transfer(h, reqtype, LIBUSB_REQUEST_GET_STATUS, 0, 0, bdata, sizeof(bdata), 0);
+  printf("Transfer sent (%d bytes)\n",r);
   //r = libusb_bulk_transfer(h, ep_bulk_in, bdata, sizeof(bdata), &transferred, 0);
   if (r <= 0) {
     MSP_libusb_error(r);
