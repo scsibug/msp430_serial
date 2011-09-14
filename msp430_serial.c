@@ -55,26 +55,18 @@ static void MSP_setup(HANDLE h) {
   } else {
     MSP_libusb_error(r);
   }
-  //unsigned char data[7] = {0x80, 0x25, 0x0, 0x0, 0x0, 0x0, 0x08};
-  // GET STATUS of the interface.
+  // get device status
   unsigned char *bdata;
-  int transferred = 0;
-  printf("sending control transfer\n");
   bdata = malloc(sizeof(*bdata) * 2);
-  //  uint8_t reqtype =  ( LIBUSB_LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_ENDPOINT);
-  uint8_t reqtype = LIBUSB_ENDPOINT_IN;
-  printf("reqtype: 0x%x, %d\n",reqtype,reqtype);
-  r = libusb_control_transfer(h, LIBUSB_ENDPOINT_IN|LIBUSB_REQUEST_TYPE_STANDARD,
-       LIBUSB_REQUEST_GET_STATUS, 0, 0, &bdata, 2, 1000);
+  uint8_t reqtype = LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_STANDARD;
+  uint8_t request = LIBUSB_REQUEST_GET_STATUS;
+    r = libusb_control_transfer(h, reqtype, request, 0, 0, &bdata, 2, 0);
   printf("self-powered: %d\n",bdata[0]&1);
   printf("remote wakeup: %d\n",bdata[0]&2);
-//  r = libusb_control_transfer(h, reqtype, LIBUSB_REQUEST_GET_STATUS, 0, 0, bdata, sizeof(bdata), 0);
-  printf("Transfer sent (%d bytes)\n",r);
-  //r = libusb_bulk_transfer(h, ep_bulk_in, bdata, sizeof(bdata), &transferred, 0);
   if (r <= 0) {
     MSP_libusb_error(r);
   } else {
-    printf("Return from control transfer: %d\n", r);
+    printf("Received %d bytes\n",r);
   }
 }
 
