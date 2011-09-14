@@ -1,7 +1,8 @@
 #include "msp430_serial.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
-#include <libusb-1.0/libusb.h>
+
 
 bool isLibUSBInitialized = false;
 struct libusb_context *mspContext = NULL;
@@ -25,6 +26,12 @@ int main() {
   MSP_get_endpoints(h, &ep_int_in, &ep_bulk_in, &ep_bulk_out);
   // Send magic setup control transfers...
   MSP_setup(h);
+  do_bulk_transfer(h);
+  // fake an event loop
+  while(1) {
+    printf(".\n");
+    libusb_handle_events(mspContext);
+  }
   printf("Exiting.\n");
   MSP_uninitialize(h);
   return(0);
@@ -41,15 +48,19 @@ static void MSP_setup(HANDLE h) {
   } else {
     MSP_libusb_error(r);
   }
-  r = libusb_claim_interface(h, 1);
+  r = libusb_claim_interface(h, 0);
   if (r == 0) {
     printf("Claimed interface\n");
   } else {
     MSP_libusb_error(r);
   }
   unsigned char data[7] = {0x80, 0x25, 0x0, 0x0, 0x0, 0x0, 0x08};
+  unsigned char bdata[1000];
+  int transferred = 0;
   printf("sending control transfer\n");
-  r = libusb_control_transfer(h, 0, 0x21, 0, 0, data, sizeof(data), 0);
+
+  //  r = libusb_control_transfer(h, 0, 0x22, 0, 0, data, sizeof(data), 0);
+  //r = libusb_bulk_transfer(h, ep_bulk_in, bdata, sizeof(bdata), &transferred, 0);
   if (r <= 0) {
     MSP_libusb_error(r);
   } else {
@@ -57,7 +68,60 @@ static void MSP_setup(HANDLE h) {
   }
 }
 
+static void do_bulk_transfer(HANDLE h) {
+  int r;
+  unsigned char* bdata;
+  // allocation
+  struct libusb_transfer* transfer = libusb_alloc_transfer(0);
+  if (transfer == NULL) {
+      fprintf(stderr, "failed to allocate transfer\n");
+  }
+  bdata = malloc(sizeof(*bdata) * 1000);
+  if (bdata == NULL) {
+      fprintf(stderr, "failed to allocate memory for bulk transfer buffer\n");
+  }
+  // filling
+  libusb_fill_bulk_transfer(transfer, h, ep_bulk_in, bdata, 1000, bulk_transfer_cb, 0, 0);
+  // submission
+  r = libusb_submit_transfer(transfer);
+  printf("bulk transfer submitted\n");
+}
+
+static void bulk_transfer_cb(struct libusb_transfer *transfer) {
+  printf("bulk_transfer_cb called\n");
+  free(transfer->buffer);
+  libusb_free_transfer(transfer);
+}
+
+
+static void do_control_transfer(HANDLE h) {
+  int r;
+  unsigned char* bdata;
+  // allocation
+  struct libusb_transfer* transfer = libusb_alloc_transfer(0);
+  if (transfer == NULL) {
+      fprintf(stderr, "failed to allocate transfer\n");
+  }
+  bdata = malloc(sizeof(*bdata) * 1000);
+  if (bdata == NULL) {
+      fprintf(stderr, "failed to allocate memory for bulk transfer buffer\n");
+  }
+  // filling
+  libusb_fill_bulk_transfer(transfer, h, ep_bulk_in, bdata, 1000, bulk_transfer_cb, 0, 0);
+  // submission
+  r = libusb_submit_transfer(transfer);
+  printf("bulk transfer submitted\n");
+}
+
+static void control_transfer_cb(struct libusb_transfer *transfer) {
+  printf("control_transfer_cb called\n");
+  free(transfer->buffer);
+  libusb_free_transfer(transfer);
+}
+
+
 static int MSP_get_endpoints(HANDLE h, uint8_t *int_in, uint8_t *bulk_in, uint8_t *bulk_out) {
+  int r;
   int c;
   int j, k, m;
   struct libusb_config_descriptor *config;
@@ -66,6 +130,12 @@ static int MSP_get_endpoints(HANDLE h, uint8_t *int_in, uint8_t *bulk_in, uint8_
   libusb_get_configuration(h, &c);
   if (c == 0) {
     printf("Device is unconfigured\n");
+    r = libusb_set_configuration(h, 1);
+    if (r == 0) {
+      printf("Successfully configured device for configuration 1\n");
+    } else {
+      MSP_libusb_error(r);
+    }
   }
   libusb_get_active_config_descriptor(dev, &config);
   for (j = 0; j < config->bNumInterfaces; j++) {

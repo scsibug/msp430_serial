@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <libusb-1.0/libusb.h>
 
 typedef void * HANDLE;
 
@@ -9,3 +10,7 @@ static void MSP_uninitialize(HANDLE h);
 static void MSP_setup(HANDLE h);
 static int MSP_get_endpoints(HANDLE h, uint8_t *int_in, uint8_t *bulk_in, uint8_t *bulk_out);
 static void describe_handle(HANDLE h);
+static void do_bulk_transfer(HANDLE h);
+static void bulk_transfer_cb(struct libusb_transfer *transfer);
+static void do_control_transfer(HANDLE h);
+static void control_transfer_cb(struct libusb_transfer *transfer);
