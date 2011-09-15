@@ -10,6 +10,7 @@ uint8_t ep_int_in, ep_bulk_in, ep_bulk_out;
 
 
 int main() {
+  int i;
   printf("msp430_serial starting...\n");
   printf("libusb initing...\n");
   // initialize USB context, and get a device handle.
@@ -27,8 +28,9 @@ int main() {
   // Send magic setup control transfers...
   MSP_setup(h);
   get_descriptor(h);
-  do_control_transfer(h);
-  //do_bulk_transfer(h);
+  do_bulk_transfer(h);
+  do_control_transfer(h,i);
+
   // fake an event loop
   while(1) {
     printf(".\n");
@@ -95,19 +97,20 @@ static void get_descriptor(HANDLE h) {
   }
 }
 
-static void do_control_transfer(HANDLE h) {
+static void do_control_transfer(HANDLE h, uint8_t req) {
   int r;
   unsigned char *bdata;
-  bdata = malloc(sizeof(*bdata) * 7);
+  bdata = malloc(sizeof(*bdata) * 0x7);
   printf("======== Control Transfer ========\n");
-  uint8_t reqtype = LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR;
+  uint8_t reqtype = 0xa1; //LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR;
   uint8_t request = 0x21;
-  r = libusb_control_transfer(h, reqtype, request, 0, 0, bdata, 7, 1000);
+  r = libusb_control_transfer(h, reqtype, request, 0, 0, bdata, 0x7, 1000);
   printf("Control Transfer returned");
   free(bdata);
   if (r <= 0) {
     MSP_libusb_error(r);
   } else {
+    exit(1);
     printf("Received %d bytes\n",r);
   }
 }
@@ -117,6 +120,7 @@ static void do_bulk_transfer(HANDLE h) {
   unsigned char* bdata;
   // allocation
   struct libusb_transfer* transfer = libusb_alloc_transfer(0);
+  printf("======== Bulk Transfer ========\n");
   if (transfer == NULL) {
       fprintf(stderr, "failed to allocate transfer\n");
   }
@@ -132,7 +136,7 @@ static void do_bulk_transfer(HANDLE h) {
 }
 
 static void bulk_transfer_cb(struct libusb_transfer *transfer) {
-  printf("bulk_transfer_cb called\n");
+  printf("======== Bulk Transfer (RETURN) ========\n");
   free(transfer->buffer);
   libusb_free_transfer(transfer);
 }
