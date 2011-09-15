@@ -20,7 +20,7 @@ int main() {
       return(1);
   }
   // enable debugging
-  libusb_set_debug(mspContext, 3);
+  //  libusb_set_debug(mspContext, 3);
   // print info
   //describe_handle(h);
   // get endpoints
@@ -28,8 +28,25 @@ int main() {
   // Send magic setup control transfers...
   MSP_setup(h);
   get_descriptor(h);
+  for (i = 0; i < 26; i++) {
+    do_control_transfer(h,0xa1,0x21);
+  }
+  printf("======== 51 ========\n");
+  do_send_std(h,0x21,0x20,true);
+  //  printf("======== 52 ========\n");
+  //  do_send_std(h,0x21,0x21,false);
+  //  printf("======== 53 ========\n");
+  //  do_send_std(h,0x21,0x22,false);
+  //  printf("======== 54 ========\n");
+  //  do_send_std(h,0x21,0x20,true);
+  //  printf("======== 55 ========\n");
+  //  do_send_std(h,0x21,0x21,false);
+
+  //do_control_transfer(h,0x21,0x22);
+  while(1) {
   do_bulk_transfer(h);
-  do_control_transfer(h,i);
+      libusb_handle_events(mspContext);
+  }
 
   // fake an event loop
   while(1) {
@@ -92,26 +109,58 @@ static void get_descriptor(HANDLE h) {
   free(bdata);
   if (r <= 0) {
     MSP_libusb_error(r);
+    exit(1);
   } else {
     printf("Received %d bytes\n",r);
   }
 }
 
-static void do_control_transfer(HANDLE h, uint8_t req) {
-  int r;
+static void do_control_transfer(HANDLE h, uint8_t reqtype, uint8_t request) {
+  int i, r;
   unsigned char *bdata;
   bdata = malloc(sizeof(*bdata) * 0x7);
   printf("======== Control Transfer ========\n");
-  uint8_t reqtype = 0xa1; //LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR;
-  uint8_t request = 0x21;
+  //  uint8_t reqtype = 0xa1; //LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR;
+  //  uint8_t request = 0x21;
   r = libusb_control_transfer(h, reqtype, request, 0, 0, bdata, 0x7, 1000);
-  printf("Control Transfer returned");
+  printf("Control Transfer returned\n");
   free(bdata);
   if (r <= 0) {
     MSP_libusb_error(r);
-  } else {
     exit(1);
+  } else {
     printf("Received %d bytes\n",r);
+    for (i = 0; i < r; i++) {
+      printf("%x ",bdata[i]);
+    }
+    printf("\n");
+  }
+}
+
+static void do_send_std(HANDLE h, uint8_t reqtype, uint8_t request, bool sendbytes) {
+  int i, r;
+  unsigned char bpattern[7] = {0x60, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08};
+  unsigned char *bdata;
+  bdata = malloc(sizeof(*bdata) * 0x7);
+  printf("======== Control Transfer ========\n");
+  //  uint8_t reqtype = 0xa1; //LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR;
+  //  uint8_t request = 0x21;
+  if (sendbytes) {
+    r = libusb_control_transfer(h, reqtype, request, 0, 0, bpattern, 0x7, 1000);
+  } else {
+    r = libusb_control_transfer(h, reqtype, request, 0, 0, bdata, 0x7, 1000);
+  }
+  printf("Control Transfer returned\n");
+  free(bdata);
+  if (r <= 0) {
+    MSP_libusb_error(r);
+    exit(1);
+  } else {
+    printf("Received %d bytes\n",r);
+    //    for (i = 0; i < r; i++) {
+    //      printf("%x ",bdata[i]);
+    //    }
+    //    printf("\n");
   }
 }
 
@@ -120,7 +169,7 @@ static void do_bulk_transfer(HANDLE h) {
   unsigned char* bdata;
   // allocation
   struct libusb_transfer* transfer = libusb_alloc_transfer(0);
-  printf("======== Bulk Transfer ========\n");
+  //  printf("======== Bulk Transfer ========\n");
   if (transfer == NULL) {
       fprintf(stderr, "failed to allocate transfer\n");
   }
@@ -132,11 +181,12 @@ static void do_bulk_transfer(HANDLE h) {
   libusb_fill_bulk_transfer(transfer, h, ep_bulk_in, bdata, 1000, bulk_transfer_cb, 0, 0);
   // submission
   r = libusb_submit_transfer(transfer);
-  printf("bulk transfer submitted\n");
+  //printf("bulk transfer submitted\n");
 }
 
 static void bulk_transfer_cb(struct libusb_transfer *transfer) {
-  printf("======== Bulk Transfer (RETURN) ========\n");
+  //printf("======== Bulk Transfer (RETURN) ========\n");
+  printf("%d\n",transfer->buffer[0]);
   free(transfer->buffer);
   libusb_free_transfer(transfer);
 }

@@ -12,5 +12,6 @@ static int MSP_get_endpoints(HANDLE h, uint8_t *int_in, uint8_t *bulk_in, uint8_
 static void describe_handle(HANDLE h);
 static void do_bulk_transfer(HANDLE h);
 static void bulk_transfer_cb(struct libusb_transfer *transfer);
-static void do_control_transfer(HANDLE h, uint8_t req);
+static void do_control_transfer(HANDLE h, uint8_t reqtype, uint8_t request);
+static void do_send_std(HANDLE h, uint8_t reqtype, uint8_t request, bool sendbytes);
 static void get_descriptor(HANDLE h);
