@@ -27,7 +27,7 @@ int main() {
   // Send magic setup control transfers...
   MSP_setup(h);
   get_descriptor(h);
-  //do_control_transfer(h);
+  do_control_transfer(h);
   //do_bulk_transfer(h);
   // fake an event loop
   while(1) {
@@ -77,7 +77,7 @@ static void get_descriptor(HANDLE h) {
   int i, r;
   unsigned char *bdata;
   bdata = malloc(sizeof(*bdata) * 255);
-  printf("======== Getting device descriptor string");
+  printf("======== Getting device descriptor string ========\n");
   uint8_t reqtype = LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_STANDARD;
   uint8_t request = LIBUSB_REQUEST_GET_STATUS;
   r = libusb_control_transfer(h, LIBUSB_ENDPOINT_IN, LIBUSB_REQUEST_GET_DESCRIPTOR, (LIBUSB_DT_STRING << 8) | 0x05, 0, bdata, 255, 0);
@@ -99,11 +99,11 @@ static void do_control_transfer(HANDLE h) {
   int r;
   unsigned char *bdata;
   bdata = malloc(sizeof(*bdata) * 7);
-  uint8_t reqtype = LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_STANDARD;
-  uint8_t request = LIBUSB_REQUEST_GET_STATUS;
-  r = libusb_control_transfer(h, 0, 0x21, 0, 0, bdata, 7, 0);
-  printf("self-powered: %d\n",bdata[0]&1);
-  printf("remote wakeup: %d\n",bdata[0]&2);
+  printf("======== Control Transfer ========\n");
+  uint8_t reqtype = LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR;
+  uint8_t request = 0x21;
+  r = libusb_control_transfer(h, reqtype, request, 0, 0, bdata, 7, 1000);
+  printf("Control Transfer returned");
   free(bdata);
   if (r <= 0) {
     MSP_libusb_error(r);
