@@ -31,10 +31,10 @@ int main() {
   // write back to device
   do_send_std(h,0x21,0x20,true);
 
-  //do_control_transfer(h,0x21,0x22);
-  do_bulk_transfer(h);
-  libusb_handle_events(mspContext);
-
+  while (1) {
+    do_bulk_transfer(h);
+    libusb_handle_events(mspContext);
+  }
   printf("Exiting.\n");
   MSP_uninitialize(h);
   return(0);
@@ -45,31 +45,20 @@ static void MSP_setup(HANDLE h) {
   // claim interface, but check if kernel has this device first:
   r = libusb_kernel_driver_active(h, 1);
   if (r == 0) {
-    printf("Interface is available\n");
+    // interface is not in use
   } else if (r == 1) {
-    printf("Kernel driver is active!\n");
+    printf("Kernel driver is active, exiting.\n");
+    exit(1);
   } else {
+    printf("found error claiming interface\n");
     MSP_libusb_error(r);
+    exit(1);
   }
   r = libusb_claim_interface(h, 0);
-  if (r == 0) {
-    printf("Claimed interface\n");
-  } else {
+  if (r != 0) {
+    printf("found error claiming interface\n");
     MSP_libusb_error(r);
-  }
-  // get device status
-  unsigned char *bdata;
-  bdata = malloc(sizeof(*bdata) * 2);
-  uint8_t reqtype = LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_STANDARD;
-  uint8_t request = LIBUSB_REQUEST_GET_STATUS;
-  r = libusb_control_transfer(h, reqtype, request, 0, 0, bdata, 2, 0);
-  printf("self-powered: %d\n",bdata[0]&1);
-  printf("remote wakeup: %d\n",bdata[0]&2);
-  free(bdata);
-  if (r <= 0) {
-    MSP_libusb_error(r);
-  } else {
-    printf("Received %d bytes\n",r);
+    exit(1);
   }
 }
 
@@ -164,8 +153,12 @@ static void do_bulk_transfer(HANDLE h) {
 }
 
 static void bulk_transfer_cb(struct libusb_transfer *transfer) {
+  int i;
   //printf("======== Bulk Transfer (RETURN) ========\n");
-  printf("%d\n",transfer->buffer[0]);
+  for (i = 0; i < transfer->actual_length; i++) {
+    printf("%d",transfer->buffer[i]);
+  }
+  printf("\n");
   free(transfer->buffer);
   libusb_free_transfer(transfer);
 }
