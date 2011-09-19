@@ -2,9 +2,11 @@
 #include <stdint.h>
 #include <libusb-1.0/libusb.h>
 
+//#define DEBUG
+
 typedef void * HANDLE;
 
-HANDLE init_dev(uint16_t DevNum, uint16_t dwReserved, uint32_t ProductID);
+HANDLE init_dev();
 static int MSP_libusb_error(int r);
 static void MSP_uninitialize(HANDLE h);
 static void MSP_setup(HANDLE h);

@@ -3,56 +3,38 @@
 #include <stdlib.h>
 #include <errno.h>
 
-
 bool isLibUSBInitialized = false;
 struct libusb_context *mspContext = NULL;
 uint8_t ep_int_in, ep_bulk_in, ep_bulk_out;
 
-
 int main() {
-  int i;
   printf("msp430_serial starting...\n");
   printf("libusb initing...\n");
   // initialize USB context, and get a device handle.
   HANDLE h = init_dev(1, 0, 0xf432);
   if (h == NULL) {
-      fprintf(stderr, "Handle is NULL, initialization failed.\n");
-      return(1);
+    fprintf(stderr, "Handle is NULL, initialization failed.\n");
+    return(1);
   }
   // enable debugging
-  //  libusb_set_debug(mspContext, 3);
-  // print info
-  //describe_handle(h);
+#ifdef DEBUG
+  libusb_set_debug(mspContext, 3);
+#endif
   // get endpoints
   MSP_get_endpoints(h, &ep_int_in, &ep_bulk_in, &ep_bulk_out);
   // Send magic setup control transfers...
   MSP_setup(h);
   get_descriptor(h);
-  for (i = 0; i < 26; i++) {
-    do_control_transfer(h,0xa1,0x21);
-  }
-  printf("======== 51 ========\n");
+  // TI driver does this 26 times... not sure why
+  // read status
+  do_control_transfer(h,0xa1,0x21);
+  // write back to device
   do_send_std(h,0x21,0x20,true);
-  //  printf("======== 52 ========\n");
-  //  do_send_std(h,0x21,0x21,false);
-  //  printf("======== 53 ========\n");
-  //  do_send_std(h,0x21,0x22,false);
-  //  printf("======== 54 ========\n");
-  //  do_send_std(h,0x21,0x20,true);
-  //  printf("======== 55 ========\n");
-  //  do_send_std(h,0x21,0x21,false);
 
   //do_control_transfer(h,0x21,0x22);
-  while(1) {
   do_bulk_transfer(h);
-      libusb_handle_events(mspContext);
-  }
+  libusb_handle_events(mspContext);
 
-  // fake an event loop
-  while(1) {
-    printf(".\n");
-    libusb_handle_events(mspContext);
-  }
   printf("Exiting.\n");
   MSP_uninitialize(h);
   return(0);
@@ -60,7 +42,6 @@ int main() {
 
 static void MSP_setup(HANDLE h) {
   int r;
-  uint8_t config = 0;
   // claim interface, but check if kernel has this device first:
   r = libusb_kernel_driver_active(h, 1);
   if (r == 0) {
@@ -81,7 +62,7 @@ static void MSP_setup(HANDLE h) {
   bdata = malloc(sizeof(*bdata) * 2);
   uint8_t reqtype = LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_STANDARD;
   uint8_t request = LIBUSB_REQUEST_GET_STATUS;
-    r = libusb_control_transfer(h, reqtype, request, 0, 0, bdata, 2, 0);
+  r = libusb_control_transfer(h, reqtype, request, 0, 0, bdata, 2, 0);
   printf("self-powered: %d\n",bdata[0]&1);
   printf("remote wakeup: %d\n",bdata[0]&2);
   free(bdata);
@@ -97,15 +78,14 @@ static void get_descriptor(HANDLE h) {
   unsigned char *bdata;
   bdata = malloc(sizeof(*bdata) * 255);
   printf("======== Getting device descriptor string ========\n");
-  uint8_t reqtype = LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_STANDARD;
-  uint8_t request = LIBUSB_REQUEST_GET_STATUS;
-  r = libusb_control_transfer(h, LIBUSB_ENDPOINT_IN, LIBUSB_REQUEST_GET_DESCRIPTOR, (LIBUSB_DT_STRING << 8) | 0x05, 0, bdata, 255, 0);
+  uint8_t reqtype = LIBUSB_ENDPOINT_IN;
+  uint8_t request = LIBUSB_REQUEST_GET_DESCRIPTOR;
+  r = libusb_control_transfer(h, reqtype, request,
+                              (LIBUSB_DT_STRING << 8) | 0x05, 0, bdata, 255, 0);
   for (i = 2; i < (r-1); i++) {
-  printf("%c",bdata[i]);
+    printf("%c",bdata[i]);
   }
   printf("\n");
-  //  printf("self-powered: %d\n",bdata[0]&1);
-  //  printf("remote wakeup: %d\n",bdata[0]&2);
   free(bdata);
   if (r <= 0) {
     MSP_libusb_error(r);
@@ -120,8 +100,7 @@ static void do_control_transfer(HANDLE h, uint8_t reqtype, uint8_t request) {
   unsigned char *bdata;
   bdata = malloc(sizeof(*bdata) * 0x7);
   printf("======== Control Transfer ========\n");
-  //  uint8_t reqtype = 0xa1; //LIBUSB_ENDPOINT_IN | LIBUSB_REQUEST_TYPE_VENDOR;
-  //  uint8_t request = 0x21;
+  printf("Sending request (no data)\n");
   r = libusb_control_transfer(h, reqtype, request, 0, 0, bdata, 0x7, 1000);
   printf("Control Transfer returned\n");
   free(bdata);
@@ -139,7 +118,7 @@ static void do_control_transfer(HANDLE h, uint8_t reqtype, uint8_t request) {
 
 static void do_send_std(HANDLE h, uint8_t reqtype, uint8_t request, bool sendbytes) {
   int i, r;
-  unsigned char bpattern[7] = {0x60, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08};
+  unsigned char bpattern[7] = {0x60, 0x09, 0x00, 0x00, 0x00, 0x00, 0x08};
   unsigned char *bdata;
   bdata = malloc(sizeof(*bdata) * 0x7);
   printf("======== Control Transfer ========\n");
@@ -157,10 +136,10 @@ static void do_send_std(HANDLE h, uint8_t reqtype, uint8_t request, bool sendbyt
     exit(1);
   } else {
     printf("Received %d bytes\n",r);
-    //    for (i = 0; i < r; i++) {
-    //      printf("%x ",bdata[i]);
-    //    }
-    //    printf("\n");
+    for (i = 0; i < r; i++) {
+      printf("%x ",bdata[i]);
+    }
+    printf("\n");
   }
 }
 
@@ -171,11 +150,11 @@ static void do_bulk_transfer(HANDLE h) {
   struct libusb_transfer* transfer = libusb_alloc_transfer(0);
   //  printf("======== Bulk Transfer ========\n");
   if (transfer == NULL) {
-      fprintf(stderr, "failed to allocate transfer\n");
+    fprintf(stderr, "failed to allocate transfer\n");
   }
   bdata = malloc(sizeof(*bdata) * 1000);
   if (bdata == NULL) {
-      fprintf(stderr, "failed to allocate memory for bulk transfer buffer\n");
+    fprintf(stderr, "failed to allocate memory for bulk transfer buffer\n");
   }
   // filling
   libusb_fill_bulk_transfer(transfer, h, ep_bulk_in, bdata, 1000, bulk_transfer_cb, 0, 0);
@@ -239,7 +218,6 @@ static int MSP_get_endpoints(HANDLE h, uint8_t *int_in, uint8_t *bulk_in, uint8_
   return 0;
 }
 
-
 static void describe_handle(HANDLE h) {
   int c;
   int j, k, m;
@@ -277,14 +255,9 @@ static void describe_handle(HANDLE h) {
     }
   }
 }
-HANDLE init_dev(uint16_t DevNum, uint16_t dwReserved, uint32_t ProductID) {
+HANDLE init_dev() {
   void * handle = NULL;
-  //struct libusb_device_handle *devh = NULL;
-  //libusb_device **devs;
-  //ssize_t cnt;
   int r = 1;
-  //libusb_device *dev;
-  //unsigned int i = 0;
   //unsigned int mspFoundCount = 0;
   //struct libusb_device_descriptor desc;
 
